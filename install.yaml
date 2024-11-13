@@ -1,0 +1,46 @@
+---
+- name: Build and Run Docker Container with Web and DB Server
+  hosts: all  # Apply to all managed nodes
+  become: true
+  tasks:
+    - name: Ensure Docker is installed on Debian-based systems
+      ansible.builtin.package:
+        name: docker.io
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure Docker is installed on Red Hat-based systems
+      ansible.builtin.package:
+        name: docker-ce
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Start and enable Docker service
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Copy Dockerfile to target location
+      ansible.builtin.copy:
+        src: ./Dockerfile
+        dest: /tmp/Dockerfile
+
+    - name: Build Docker image
+      ansible.builtin.command:
+        cmd: docker build -t web_db_image /tmp
+      register: build_output
+
+    - name: Display Docker build output
+      debug:
+        var: build_output.stdout_lines
+
+    - name: Run Docker container
+      ansible.builtin.docker_container:
+        name: web_db_container
+        image: web_db_image
+        state: started
+        restart_policy: always
+        ports:
+          - "8080:80"
+          - "3307:3306"
